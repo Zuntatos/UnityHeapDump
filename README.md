@@ -6,6 +6,13 @@ Total tracked memory found by this script can be much higher than the heap size,
 
 Use the menu item "Tools/Memory/Dump Heap" or call UnityHeapDump.Create() somewhere from your code to create a memory dump at %projectroot%/dump/. The process may take several seconds (or a lot more), depending on heap size and complexity.
 
+Tool was developed for lack of a method to inspect the heap or create a dump using Unity3D, as:
+
+* The builtin profiler only tracks objects inheriting from UnityEngine.Object
+* Can't seem to use the 3rd party memory dump tools from visual studio or monodevelop with unity
+* Can't seem to use the profiling functionality of mono, as one can't pass the required arguments (would require mono rebuild/hack)
+* The experimental Memory Profiler from Unity3D only works with IL2CPP (and standalone IL2CPP is not available yet)
+
 # Output format
 
 Example of a small class with 3 static fields:
