@@ -4,7 +4,7 @@ Tool to dump memory to text files for inspection
 Primary use is to find which static fields hold how much memory in order to find possible object leaks. For leaking of unity objects, please use the detailed memory profiler included in Unity3D. 
 Total tracked memory found by this script can be much higher than the heap size, as an object with shared ownership will be counted towards every owner.
 
-Use the menu item "Tools/Memory/Dump Heap" or call UnityHeapDump.Create() somewhere from your code to create a memory dump at %projectroot%/dump/
+Use the menu item "Tools/Memory/Dump Heap" or call UnityHeapDump.Create() somewhere from your code to create a memory dump at %projectroot%/dump/. The process may take several seconds (or a lot more), depending on heap size and complexity.
 
 # Output format
 
@@ -47,3 +47,7 @@ CHILD_MIN_SIZE, minimum byte count to print the reference itself inside of the f
 
 Total tracked memory count can be lower than the used heap size; No idea where Its missing objects or calculating incorrectly. Seems to miss about 10-30%.
 Various Types throw errors due to having bad implementations for GetHashCode() or Equals (Object). Parsing of the root Type causing the error is currently stopped, and parsing of the next Type is started. (This may actually be the cause for the missing size)
+
+# Credits
+
+Idea/code was vaguely inspired by https://github.com/Cotoff/UnityHeapEx , but that code took multiple minutes to dump and created a 500 MiB .xml file for my use case, which was not really usable.
