@@ -22,6 +22,17 @@ Static (Players): 720 bytes
     PlayerHasID (System.Func 3[Players+Player,NetworkID,System.Boolean]) : 24
 ```
 
+Example of a small assembly summary (this example is not a sensible usecase I guess, but it's small so:)
+```
+Assembly: System.Core, Version=2.0.5.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e of total size: 13684
+    Type: System.Security.Cryptography.AesTransform of size 9092
+    Type: Consts of size 4528
+    Type: System.Linq.Expressions.ExpressionPrinter of size 32
+    Type: System.Linq.Expressions.Expression of size 24
+    Type: System.TimeZoneInfo of size 4
+    Type: System.Threading.ReaderWriterLockSlim of size 4
+```
+
 A summary of the results is available at %projectroot%/dump/log.txt. This contains all Types and Components parsed and Errors at the end. The summary lists Types in order of size, by order of total Assembly size.
 
 * Unity3D code Assemblies are printed to a file in the form of %projectroot%/dump/statics/%assembly%/%size%-%type%.
