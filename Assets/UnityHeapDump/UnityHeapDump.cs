@@ -548,7 +548,7 @@ public class UnityHeapDump
 		static bool IsStaticallySized(Type type)
 		{
 
-			if (type.IsPointer || type.IsArray || type.IsClass)
+			if (type.IsPointer || type.IsArray || type.IsClass || type.IsInterface)
 			{
 				return false;
 			}
