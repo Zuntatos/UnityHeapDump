@@ -16,6 +16,8 @@ public class UnityHeapDump
 	static int ThreadJobsPrinting = 0;
 	static int ThreadJobsDone = 0;
 
+	static HashSet<Type> genericTypes = new HashSet<Type>();
+
 	public static void Create ()
 	{
 		TypeData.Start();
@@ -63,9 +65,7 @@ public class UnityHeapDump
 						parseErrors.Add (new KeyValuePair<Type, Exception>(type, e));
 					}
 				}
-				types.Sort((a, b) => b.Size - a.Size);
 				assemblyResults[assembly] = types;
-				assemblySizes[assembly] = types.Sum(a => a.Size);
 			}
 
 			List<StructOrClass> unityComponents = new List<StructOrClass>();
@@ -107,6 +107,24 @@ public class UnityHeapDump
 				}
 			}
 
+			foreach (var genericType in genericTypes.ToList())
+			{
+				try
+				{
+					assemblyResults[genericType.Assembly].Add(new StructOrClass(genericType, "dump/statics/misc/"));
+				}
+				catch (Exception e)
+				{
+					parseErrors.Add(new KeyValuePair<Type, Exception>(genericType, e));
+				}
+			}
+
+			foreach (var pair in assemblyResults)
+			{
+				assemblySizes[pair.Key] = pair.Value.Sum(a => a.Size);
+				pair.Value.Sort((a, b) => b.Size - a.Size);
+			}
+
 			TypeData.Clear();
 
 			var assemblySizesList = assemblySizes.ToList();
@@ -121,6 +139,8 @@ public class UnityHeapDump
 			bool printedUnityScriptableObjects = false;
 
 			logger.WriteLine("Total tracked memory (including duplicates, so too high) = {0}", assemblySizesList.Sum(a => a.Value) + unityComponentsSize + unityScriptableObjectsSize);
+
+
 			foreach (var pair in assemblySizesList)
 			{
 				var assembly = pair.Key;
@@ -279,44 +299,31 @@ public class UnityHeapDump
 			Size = rootTypeData.Size;
 			if (ParsedType.IsArray)
 			{
+				int i = 0;
 				ArraySize = GetTotalLength((Array)root);
 				Type elementType = ParsedType.GetElementType();
 				TypeData elementTypeData = TypeData.Get(elementType);
 				if (elementType.IsValueType || elementType.IsPrimitive || elementType.IsEnum)
 				{
-					Size += elementTypeData.Size * ArraySize;
 					if (elementTypeData.DynamicSizedFields == null)
 					{
+						Size += elementTypeData.Size * ArraySize;
 						return;
+					}
+
+					foreach (var item in (Array)root)
+					{
+						StructOrClass child = new StructOrClass((i++).ToString(), item, elementTypeData, seenObjects);
+						Size += child.Size;
+						Children.Add(child);
 					}
 				}
 				else
 				{
 					Size += IntPtr.Size * ArraySize;
-				}
-
-				int i = 0;
-				foreach (var item in (Array)root)
-				{
-					if (item != null)
+					foreach (var item in (Array)root)
 					{
-						if (elementTypeData.DynamicSizedFields == null)
-						{
-							Size += elementTypeData.Size;
-						}
-						else
-						{
-							if (seenObjects.Contains(item))
-							{
-								Size += IntPtr.Size;
-								continue;
-							}
-							seenObjects.Add(item);
-
-							StructOrClass child = new StructOrClass((i++).ToString(), item, elementTypeData, seenObjects);
-							Size += child.Size;
-							Children.Add(child);
-						}
+						ParseItem(item, (i++).ToString(), seenObjects);
 					}
 				}
 			} else
@@ -336,26 +343,28 @@ public class UnityHeapDump
 		/// </summary>
 		void ParseField(FieldInfo fieldInfo, object root, HashSet<object> seenObjects)
 		{
-			Type fieldType = fieldInfo.FieldType;
-			if (fieldType.IsPointer)
+			if (!fieldInfo.FieldType.IsPointer)
 			{
-				return; // getting value of pointer field crashes things a lot
+				ParseItem(fieldInfo.GetValue(root), fieldInfo.Name, seenObjects);
 			}
-			object fieldValue = fieldInfo.GetValue(root);
-			if (fieldValue == null)
+		}
+
+		void ParseItem (object obj, string objName, HashSet<object> seenObjects)
+		{
+			if (obj == null)
 			{
-				return; // wont do any good to find the size of null
+				return;
 			}
-			fieldType = fieldValue.GetType();
-			if (fieldType.IsPointer)
+			Type type = obj.GetType();
+			if (type.IsPointer)
 			{
 				return; // again, a pointer cast to whatever the fieldtype is, shoo.
 			}
-			if (fieldType == typeof(string))
+			if (type == typeof(string))
 			{
 				// string needs special handling
 				int strSize = 3 * IntPtr.Size + 2;
-				strSize += ((string)(fieldValue)).Length * sizeof(char);
+				strSize += ((string)(obj)).Length * sizeof(char);
 				int pad = strSize % IntPtr.Size;
 				if (pad != 0)
 				{
@@ -365,20 +374,19 @@ public class UnityHeapDump
 				return;
 			}
 			// obj is not null, and a primitive/enum/array/struct/class
-			TypeData fieldTypeData = TypeData.Get(fieldType);
-			if (fieldType.IsClass || fieldType.IsArray || fieldTypeData.DynamicSizedFields != null)
+			TypeData fieldTypeData = TypeData.Get(type);
+			if (type.IsClass || type.IsArray || fieldTypeData.DynamicSizedFields != null)
 			{
 				// class, array, or struct with pointers
-				if (!(fieldType.IsPrimitive || fieldType.IsValueType || fieldType.IsEnum))
+				if (!(type.IsPrimitive || type.IsValueType || type.IsEnum))
 				{
-					if (seenObjects.Contains(fieldValue))
+					if (!seenObjects.Add(obj))
 					{
 						return;
 					}
-					seenObjects.Add(fieldValue);
 				}
 
-				StructOrClass child = new StructOrClass(fieldInfo.Name, fieldValue, fieldTypeData, seenObjects);
+				StructOrClass child = new StructOrClass(objName, obj, fieldTypeData, seenObjects);
 				Size += child.Size;
 				Children.Add(child);
 				return;
@@ -467,6 +475,10 @@ public class UnityHeapDump
 
 		public TypeData(Type type, bool nested = false)
 		{
+			if (type.IsGenericType)
+			{
+				genericTypes.Add(type);
+			}
 			Type baseType = type.BaseType;
 			if (baseType != null
 				&& baseType != typeof(object)
