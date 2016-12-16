@@ -63,7 +63,14 @@ CHILD_MIN_SIZE, minimum byte count to print the reference itself inside of the f
 
 # Issues
 
-Total tracked memory count can be lower than the used heap size; No idea where Its missing objects or calculating incorrectly. Seems to miss about 10-30%.
+Not all memory is properly traversed. Known missing regions:
+
+* Static fields of generic class instances, only static fields on found instances will be found
+* Proper traversing of [System.ThreadStatic] fields.
+* References on the stack
+
+Memory use will be biased because ALL the static constructors will be run, whether or not they were referenced before. 
+
 Various Types throw errors due to having bad implementations for GetHashCode() or Equals (Object). Parsing of the root Type causing the error is currently stopped, and parsing of the next Type is started. (This may actually be the cause for the missing size)
 
 # Credits
